@@ -66,6 +66,9 @@ print(f"Участники эталонной разметки: {', '.join(speak
 audio_file = input(
     "Введите имя аудиофайла с расширением: "
 ).strip()
+diarization_speaker_count = int(
+    input("Введите число говорящих в результате диаризации: ")
+)
 time_offset = float(
     input("Введите сдвиг от начала записи в секундах: ")
     .strip()
@@ -123,7 +126,17 @@ result = {
 
 output_dir = ANNOTATIONS_DIR.parent / "reference_json_files"
 output_dir.mkdir(parents=True, exist_ok=True)
-output_path = output_dir / f"{Path(audio_file).stem}.json"
+speaker_count_status = (
+    "correct"
+    if diarization_speaker_count == len(speakers)
+    else "incorrect"
+)
+output_name = (
+    f"{Path(audio_file).stem}_reference_by_words_"
+    f"{speaker_count_status}_num_speakers_"
+    f"{diarization_speaker_count}.json"
+)
+output_path = output_dir / output_name
 
 with output_path.open("w", encoding="utf-8") as file:
     json.dump(result, file, ensure_ascii=False, indent=2)
