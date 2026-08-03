@@ -6,7 +6,7 @@ from pathlib import Path
 
 # Пути к сравниваемым JSON-файлам.
 REFERENCE_JSON_PATH = Path(
-    r"content/reference_json_files/ES2002a__1060sec_reference_by_words_incorrect_num_speakers_5.json"
+    r"content/reference_json_files/ES2002a_1060sec_reference_by_words_incorrect_num_speakers_5.json"
 )
 DIARIZATION_JSON_PATH = Path(
     r"content/diarization_json_files/pyannotate/speaker-diarization-community-1/ES2002a_1060sec_incorrect_num_speakers_5.json"
@@ -118,9 +118,68 @@ def calculate_der(reference, hypothesis):
     }
 
 
+def intervals_duration(intervals):
+    """Возвращает суммарную длительность непересекающихся интервалов."""
+
+    return sum(end - start for start, end in intervals)
+
+
+def intersection_duration(first_intervals, second_intervals):
+    """Возвращает длительность пересечения двух наборов интервалов."""
+
+    intersection = 0.0
+    first_index = 0
+    second_index = 0
+
+    while (
+        first_index < len(first_intervals)
+        and second_index < len(second_intervals)
+    ):
+        first_start, first_end = first_intervals[first_index]
+        second_start, second_end = second_intervals[second_index]
+
+        overlap_start = max(first_start, second_start)
+        overlap_end = min(first_end, second_end)
+        if overlap_end > overlap_start:
+            intersection += overlap_end - overlap_start
+
+        if first_end <= second_end:
+            first_index += 1
+        else:
+            second_index += 1
+
+    return intersection
+
+
+def calculate_jer(reference, hypothesis):
+    """Вычисляет JER каждого эталонного говорящего и средний JER."""
+
+    jer_by_speaker = {}
+
+    for speaker, reference_intervals in sorted(reference.items()):
+        hypothesis_intervals = hypothesis.get(speaker, [])
+        intersection = intersection_duration(
+            reference_intervals,
+            hypothesis_intervals,
+        )
+        union = (
+            intervals_duration(reference_intervals)
+            + intervals_duration(hypothesis_intervals)
+            - intersection
+        )
+        jer_by_speaker[speaker] = 1.0 - intersection / union
+
+    if not jer_by_speaker:
+        raise ValueError("В эталонной разметке отсутствуют говорящие.")
+
+    mean_jer = sum(jer_by_speaker.values()) / len(jer_by_speaker)
+    return jer_by_speaker, mean_jer
+
+
 reference = load_segments(REFERENCE_JSON_PATH)
 hypothesis = load_segments(DIARIZATION_JSON_PATH)
 metrics = calculate_der(reference, hypothesis)
+jer_by_speaker, mean_jer = calculate_jer(reference, hypothesis)
 
 print(f"Эталонная речь: {metrics['reference_speech']:.3f} с")
 print(
@@ -129,10 +188,22 @@ print(
 )
 print(
     f"Ложная речь: {metrics['false_alarm']:.3f} с "
-    f"({metrics['false_alarm'] / metrics['reference_speech'] * 100:.3f}%)'"
+    f"({metrics['false_alarm'] / metrics['reference_speech'] * 100:.3f}%)"
 )
 print(
     f"Путаница говорящих: {metrics['speaker_confusion']:.3f} с "
     f"({metrics['speaker_confusion'] / metrics['reference_speech'] * 100:.3f}%)"
 )
 print(f"DER: {metrics['der'] * 100:.3f}%")
+print()
+for speaker, jer in jer_by_speaker.items():
+    speaker_speech = intervals_duration(reference[speaker])
+    speech_percentage = (
+        speaker_speech / metrics["reference_speech"] * 100
+    )
+    print(
+        f"{speaker}: речь {speaker_speech:.3f} с "
+        f"({speech_percentage:.3f}% эталонной речи), "
+        f"JER {jer * 100:.3f}%"
+    )
+print(f"Средний JER: {mean_jer * 100:.3f}%")
