@@ -6,10 +6,10 @@ from pathlib import Path
 
 # Пути к сравниваемым JSON-файлам.
 REFERENCE_JSON_PATH = Path(
-    r"content/reference_json_files/ES2002a_1060sec_reference_by_words_incorrect_num_speakers_5.json"
+    r"content/reference_json_files/nemo/ES2002a_300sec_reference_by_words.json"
 )
 DIARIZATION_JSON_PATH = Path(
-    r"content/diarization_json_files/pyannotate/speaker-diarization-community-1/ES2002a_1060sec_incorrect_num_speakers_5.json"
+    r"content/diarization_json_files/nemo/diar_sortformer_4spk-v1/ES2002a_300sec.json"
 )
 
 
