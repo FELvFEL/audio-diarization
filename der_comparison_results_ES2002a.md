@@ -169,14 +169,14 @@ JER = (1 − длительность пересечения эталонных 
 | Модель | Длительность фрагмента, с | Режим определения числа говорящих | Устройство | Доступная память | Использованная память, GiB | Время диаризации, с |
 |:---:|:---:|:---:|:---:|:---:|:---:|:---:|
 | pyannote Community-1 | 300 | Автоматически определено 4 | GPU Tesla T4 | 15 GiB видеопамяти | 1.592 | 17.776 |
-| pyannote Community-1 | 300 | Вручную задано 4 | GPU Tesla T4 | 15 GiB видеопамяти |  | 17.233 |
-| pyannote Community-1 | 300 | Вручную задано 5 | GPU Tesla T4 | 15 GiB видеопамяти |  | 17.191 |
-| pyannote Community-1 | 300 | Автоматически определено 4 | CPU AMD EPYC 7B12 (1 ядро, 2 потока) | 12 GiB ОЗУ |  | 769.919 |
-| pyannote Community-1 | 300 | Автоматически определено 4 | CPU Intel Core i3-1115G4 (2 ядра, 4 потока) | 7.80 GiB ОЗУ | - | 453.956 |
-| NVIDIA NeMo Sortformer | 300 | Автоматически определено до 4 | GPU Tesla T4 | 15 GiB видеопамяти |  | 3.773 |
-| NVIDIA NeMo Sortformer | 300 | Автоматически определено до 4 | CPU AMD EPYC 7B12 (1 ядро, 2 потока) | 12 GiB ОЗУ |  | 156.074 |
-| NVIDIA NeMo Sortformer | 1600 | Автоматически определено до 4 | GPU Tesla T4 | 15 GiB видеопамяти |  | - (out of memory) |
-| NVIDIA NeMo Sortformer | 1600 | Автоматически определено до 4 | CPU AMD EPYC 7B12 (1 ядро, 2 потока) | 12 GiB ОЗУ |  | - (out of memory) |
-| pyannote Community-1 | 1060 | Автоматически определено 4 | GPU Tesla T4 | 15 GiB видеопамяти |  | 75.310 |
-| pyannote Community-1 | 1060 | Вручную задано 4 | GPU Tesla T4 | 15 GiB видеопамяти |  | 74.976 |
-| pyannote Community-1 | 1060 | Вручную задано 5 | GPU Tesla T4 | 15 GiB видеопамяти |  | 74.808 |
+| pyannote Community-1 | 300 | Вручную задано 4 | GPU Tesla T4 | 15 GiB видеопамяти | 1.592 | 17.233 |
+| pyannote Community-1 | 300 | Вручную задано 5 | GPU Tesla T4 | 15 GiB видеопамяти | 1.592 | 17.191 |
+| pyannote Community-1 | 300 | Автоматически определено 4 | CPU AMD EPYC 7B12 (1 ядро, 2 потока) | 12 GiB ОЗУ | 2.425 | 769.919 |
+| pyannote Community-1 | 300 | Автоматически определено 4 | CPU Intel Core i3-1115G4 (2 ядра, 4 потока) | 7.80 GiB ОЗУ | 1.739 | 453.956 |
+| NVIDIA NeMo Sortformer | 300 | Автоматически определено до 4 | GPU Tesla T4 | 15 GiB видеопамяти | 3.612 | 3.773 |
+| NVIDIA NeMo Sortformer | 300 | Автоматически определено до 4 | CPU AMD EPYC 7B12 (1 ядро, 2 потока) | 12 GiB ОЗУ | 4.646 | 156.074 |
+| NVIDIA NeMo Sortformer | 1600 | Автоматически определено до 4 | GPU Tesla T4 | 15 GiB видеопамяти | - | - (out of memory) |
+| NVIDIA NeMo Sortformer | 1600 | Автоматически определено до 4 | CPU AMD EPYC 7B12 (1 ядро, 2 потока) | 12 GiB ОЗУ | - | - (out of memory) |
+| pyannote Community-1 | 1060 | Автоматически определено 4 | GPU Tesla T4 | 15 GiB видеопамяти | 1.592 | 75.310 |
+| pyannote Community-1 | 1060 | Вручную задано 4 | GPU Tesla T4 | 15 GiB видеопамяти | 1.592 | 74.976 |
+| pyannote Community-1 | 1060 | Вручную задано 5 | GPU Tesla T4 | 15 GiB видеопамяти | 1.592 | 74.808 |
