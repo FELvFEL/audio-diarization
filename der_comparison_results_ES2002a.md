@@ -175,6 +175,7 @@ JER = (1 − длительность пересечения эталонных 
 | pyannote Community-1 | 300 | Автоматически определено 4 | CPU Intel Core i3-1115G4 (2 ядра, 4 потока) | 7.80 GiB ОЗУ | 1.739 | 453.956 |
 | NVIDIA NeMo Sortformer | 300 | Автоматически определено до 4 | GPU Tesla T4 | 15 GiB видеопамяти | 3.612 | 3.773 |
 | NVIDIA NeMo Sortformer | 300 | Автоматически определено до 4 | CPU AMD EPYC 7B12 (1 ядро, 2 потока) | 12 GiB ОЗУ | 4.646 | 156.074 |
+| NVIDIA NeMo Sortformer | 300 | Автоматически определено до 4 | CPU Intel Core i3-1115G4 (2 ядра, 4 потока) | 7.80 GiB ОЗУ | 3.481 | 51.837 |
 | NVIDIA NeMo Sortformer | 1600 | Автоматически определено до 4 | GPU Tesla T4 | 15 GiB видеопамяти | - | - (out of memory) |
 | NVIDIA NeMo Sortformer | 1600 | Автоматически определено до 4 | CPU AMD EPYC 7B12 (1 ядро, 2 потока) | 12 GiB ОЗУ | - | - (out of memory) |
 | pyannote Community-1 | 1060 | Автоматически определено 4 | GPU Tesla T4 | 15 GiB видеопамяти | 1.592 | 75.310 |
