@@ -4,9 +4,25 @@ import json
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
+from ami_annotations_download import download_meeting_annotations
+from speaker_mapping import find_best_speaker_mapping
 
-# Путь к каталогу, содержащему папки segments и words.
-ANNOTATIONS_DIR = Path(r"content/AMI_ES2002a_manual")
+
+meeting = input("Введите имя встречи AMI: ").strip()
+if not meeting:
+    raise ValueError("Имя встречи AMI не введено.")
+
+diarization_json_path = Path(
+    input("Введите путь к JSON-файлу результата диаризации: ").strip()
+)
+with diarization_json_path.open("r", encoding="utf-8") as file:
+    diarization_result = json.load(file)
+
+diarization_segments = diarization_result["segments"]
+audio_file = diarization_result["audio_file"]
+diarization_speaker_count = len(
+    {segment["speaker"] for segment in diarization_segments}
+)
 
 
 def collect_non_speech(words_path):
@@ -56,90 +72,72 @@ def subtract_intervals(start, end, excluded):
     return pieces
 
 
-segments_dir = ANNOTATIONS_DIR / "segments"
-words_dir = ANNOTATIONS_DIR / "words"
+with download_meeting_annotations(meeting, {"segments", "words"}) as annotations_dir:
+    segments_dir = annotations_dir / "segments"
+    words_dir = annotations_dir / "words"
+    meeting_segment_files = sorted(segments_dir.glob(f"{meeting}.*.segments.xml"))
+    speakers = sorted(
+        {path.name.split(".")[1] for path in meeting_segment_files}
+    )
 
-if not segments_dir.is_dir():
-    raise FileNotFoundError(f"Не найден каталог: {segments_dir}")
-if not words_dir.is_dir():
-    raise FileNotFoundError(f"Не найден каталог: {words_dir}")
+    time_offset = float(
+        input("Введите сдвиг от начала записи в секундах: ")
+        .strip()
+        .replace(",", ".")
+    )
+    fragment_duration = float(
+        input("Введите длительность фрагмента в секундах: ")
+        .strip()
+        .replace(",", ".")
+    )
 
-segment_files = sorted(segments_dir.glob("*.segments.xml"))
-if not segment_files:
-    raise FileNotFoundError(f"В каталоге {segments_dir} нет файлов *.segments.xml")
+    result_segments = []
 
-meeting = segment_files[0].name.split(".")[0]
-meeting_segment_files = segment_files
-speakers = sorted(
-    {path.name.split(".")[1] for path in meeting_segment_files}
+    for segment_path in meeting_segment_files:
+        speaker = segment_path.name.split(".")[1]
+        words_path = words_dir / f"{meeting}.{speaker}.words.xml"
+
+        non_speech = collect_non_speech(words_path)
+        root = ET.parse(segment_path).getroot()
+
+        for segment in root.findall("segment"):
+            start = float(segment.attrib["transcriber_start"])
+            end = float(segment.attrib["transcriber_end"])
+
+            for piece_start, piece_end in subtract_intervals(
+                start,
+                end,
+                non_speech,
+            ):
+                shifted_start = piece_start - time_offset
+                shifted_end = piece_end - time_offset
+
+                clipped_start = max(0.0, shifted_start)
+                clipped_end = min(fragment_duration, shifted_end)
+
+                if clipped_end <= clipped_start:
+                    continue
+
+                result_segments.append(
+                    {
+                        "start": round(clipped_start, 3),
+                        "end": round(clipped_end, 3),
+                        "speaker": speaker,
+                    }
+                )
+
+speaker_mapping, matched_overlap = find_best_speaker_mapping(
+    result_segments,
+    diarization_segments,
 )
-
-print(f"Встреча: {meeting}")
-print(f"Участники эталонной разметки: {', '.join(speakers)}")
-
-audio_file = input("Введите имя аудиофайла с расширением: ").strip()
-diarization_speaker_count = int(
-    input("Введите число говорящих в результате диаризации: ")
-)
-time_offset = float(
-    input("Введите сдвиг от начала записи в секундах: ")
-    .strip()
-    .replace(",", ".")
-)
-fragment_duration = float(
-    input("Введите длительность фрагмента в секундах: ")
-    .strip()
-    .replace(",", ".")
-)
-
-speaker_names = {}
+print("Автоматический маппинг говорящих:")
 for speaker in speakers:
-    name = input(f"Введите имя для участника {speaker}: ").strip()
-    if not name:
-        raise ValueError(f"Имя для участника {speaker} не введено.")
-    if name in speaker_names.values():
-        raise ValueError(f"Имя {name!r} введено более одного раза.")
-    speaker_names[speaker] = name
+    print(
+        f"{speaker} -> {speaker_mapping[speaker]} "
+    )
 
-result_segments = []
-
-for segment_path in meeting_segment_files:
-    speaker = segment_path.name.split(".")[1]
-    words_path = words_dir / f"{meeting}.{speaker}.words.xml"
-
-    if not words_path.is_file():
-        raise FileNotFoundError(
-            f"Не найдена пословная разметка участника {speaker}: {words_path}"
-        )
-
-    non_speech = collect_non_speech(words_path)
-    root = ET.parse(segment_path).getroot()
-
-    for segment in root.findall("segment"):
-        start = float(segment.attrib["transcriber_start"])
-        end = float(segment.attrib["transcriber_end"])
-
-        for piece_start, piece_end in subtract_intervals(
-            start,
-            end,
-            non_speech,
-        ):
-            shifted_start = piece_start - time_offset
-            shifted_end = piece_end - time_offset
-
-            clipped_start = max(0.0, shifted_start)
-            clipped_end = min(fragment_duration, shifted_end)
-
-            if clipped_end <= clipped_start:
-                continue
-
-            result_segments.append(
-                {
-                    "start": round(clipped_start, 3),
-                    "end": round(clipped_end, 3),
-                    "speaker": speaker_names[speaker],
-                }
-            )
+for segment in result_segments:
+    segment["speaker"] = speaker_mapping[segment["speaker"]]
 
 result_segments.sort(
     key=lambda item: (
@@ -154,7 +152,7 @@ result = {
     "segments": result_segments,
 }
 
-output_dir = ANNOTATIONS_DIR.parent / "reference_json_files"
+output_dir = Path("content/reference_json_files")
 output_dir.mkdir(parents=True, exist_ok=True)
 speaker_count_status = (
     "correct"
