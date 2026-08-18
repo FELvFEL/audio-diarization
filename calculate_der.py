@@ -1,15 +1,11 @@
-"""Расчёт DER по эталонной и полученной моделью диаризации."""
-
 import json
 from pathlib import Path
 
-
-# Пути к сравниваемым JSON-файлам.
-REFERENCE_JSON_PATH = Path(
-    r"content/reference_json_files/nemo/ES2002a_300sec_reference_by_words.json"
+from convert_ami_annotations_to_json_by_segments import (
+    convert_annotations_by_segments,
 )
-DIARIZATION_JSON_PATH = Path(
-    r"content/diarization_json_files/nemo/diar_sortformer_4spk-v1/ES2002a_300sec.json"
+from convert_ami_annotations_to_json_by_words_trancription import (
+    convert_annotations_by_words,
 )
 
 
@@ -176,34 +172,99 @@ def calculate_jer(reference, hypothesis):
     return jer_by_speaker, mean_jer
 
 
-reference = load_segments(REFERENCE_JSON_PATH)
-hypothesis = load_segments(DIARIZATION_JSON_PATH)
-metrics = calculate_der(reference, hypothesis)
-jer_by_speaker, mean_jer = calculate_jer(reference, hypothesis)
+def evaluate_diarization(reference_json_path, diarization_json_path):
+    """Вычисляет DER и JER для двух JSON-файлов."""
 
-print(f"Эталонная речь: {metrics['reference_speech']:.3f} с")
-print(
-    f"Пропуск речи: {metrics['missed_speech']:.3f} с "
-    f"({metrics['missed_speech'] / metrics['reference_speech'] * 100:.3f}%)"
-)
-print(
-    f"Ложная речь: {metrics['false_alarm']:.3f} с "
-    f"({metrics['false_alarm'] / metrics['reference_speech'] * 100:.3f}%)"
-)
-print(
-    f"Путаница говорящих: {metrics['speaker_confusion']:.3f} с "
-    f"({metrics['speaker_confusion'] / metrics['reference_speech'] * 100:.3f}%)"
-)
-print(f"DER: {metrics['der'] * 100:.3f}%")
-print()
-for speaker, jer in jer_by_speaker.items():
-    speaker_speech = intervals_duration(reference[speaker])
-    speech_percentage = (
-        speaker_speech / metrics["reference_speech"] * 100
+    reference = load_segments(reference_json_path)
+    hypothesis = load_segments(diarization_json_path)
+    metrics = calculate_der(reference, hypothesis)
+    jer_by_speaker, mean_jer = calculate_jer(reference, hypothesis)
+    return reference, metrics, jer_by_speaker, mean_jer
+
+
+def print_results(reference, metrics, jer_by_speaker, mean_jer):
+    """Выводит результаты расчёта DER и JER."""
+
+    print()
+    print(f"Эталонная речь: {metrics['reference_speech']:.3f} с")
+    print(
+        f"Пропуск речи: {metrics['missed_speech']:.3f} с "
+        f"({metrics['missed_speech'] / metrics['reference_speech'] * 100:.3f}%)"
     )
     print(
-        f"{speaker}: речь {speaker_speech:.3f} с "
-        f"({speech_percentage:.3f}% эталонной речи), "
-        f"JER {jer * 100:.3f}%"
+        f"Ложная речь: {metrics['false_alarm']:.3f} с "
+        f"({metrics['false_alarm'] / metrics['reference_speech'] * 100:.3f}%)"
     )
-print(f"Средний JER: {mean_jer * 100:.3f}%")
+    print(
+        f"Путаница говорящих: {metrics['speaker_confusion']:.3f} с "
+        f"({metrics['speaker_confusion'] / metrics['reference_speech'] * 100:.3f}%)"
+    )
+    print(f"DER: {metrics['der'] * 100:.3f}%")
+    print()
+
+    for speaker, jer in jer_by_speaker.items():
+        speaker_speech = intervals_duration(reference[speaker])
+        speech_percentage = speaker_speech / metrics["reference_speech"] * 100
+        print(
+            f"{speaker}: речь {speaker_speech:.3f} с "
+            f"({speech_percentage:.3f}% эталонной речи), "
+            f"JER {jer * 100:.3f}%"
+        )
+    print(f"Средний JER: {mean_jer * 100:.3f}%")
+
+
+def main():
+    meeting = input("Введите имя встречи AMI: ").strip()
+    diarization_json_path = Path(
+        input("Введите путь к JSON-файлу результата диаризации: ")
+        .strip()
+        .strip('"')
+    )
+
+    print("Выберите способ построения эталонной разметки:")
+    print("1 - на основе слов")
+    print("2 - на основе сегментов")
+    conversion_type = input("Введите 1 или 2: ").strip()
+
+    time_offset = float(
+        input("Введите сдвиг от начала записи в секундах: ")
+        .strip()
+        .replace(",", ".")
+    )
+    fragment_duration = float(
+        input("Введите длительность фрагмента в секундах: ")
+        .strip()
+        .replace(",", ".")
+    )
+
+    if time_offset < 0:
+        raise ValueError("Сдвиг не может быть отрицательным.")
+    if fragment_duration <= 0:
+        raise ValueError("Длительность фрагмента должна быть больше нуля.")
+
+    if conversion_type == "1":
+        reference_json_path = convert_annotations_by_words(
+            meeting,
+            diarization_json_path,
+            time_offset,
+            fragment_duration,
+        )
+    elif conversion_type == "2":
+        reference_json_path = convert_annotations_by_segments(
+            meeting,
+            diarization_json_path,
+            time_offset,
+            fragment_duration,
+        )
+    else:
+        raise ValueError("Нужно выбрать 1 или 2.")
+
+    reference, metrics, jer_by_speaker, mean_jer = evaluate_diarization(
+        reference_json_path,
+        diarization_json_path,
+    )
+    print_results(reference, metrics, jer_by_speaker, mean_jer)
+
+
+if __name__ == "__main__":
+    main()
