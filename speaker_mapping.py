@@ -1,4 +1,4 @@
-from itertools import permutations
+from functools import lru_cache
 
 
 def merge_speaker_intervals(segments, speaker):
@@ -41,6 +41,8 @@ def find_best_speaker_mapping(reference_segments, diarization_segments):
     reference_speakers = sorted({item["speaker"] for item in reference_segments})
     diarization_speakers = sorted({item["speaker"] for item in diarization_segments})
 
+    if not reference_speakers:
+        raise ValueError("В эталонной разметке отсутствуют говорящие.")
     if len(diarization_speakers) < len(reference_speakers):
         raise ValueError(
             "В результате диаризации меньше говорящих, чем в эталонной разметке."
@@ -63,16 +65,37 @@ def find_best_speaker_mapping(reference_segments, diarization_segments):
         for diarization_speaker in diarization_speakers
     }
 
-    best_diarization_order = max(
-        permutations(diarization_speakers, len(reference_speakers)),
-        key=lambda order: sum(
-            overlap[(reference_speaker, diarization_speaker)]
-            for reference_speaker, diarization_speaker in zip(
-                reference_speakers,
-                order,
+    @lru_cache(maxsize=None)
+    def find_best_order(reference_index, used_diarization_indexes):
+        if reference_index == len(reference_speakers):
+            return 0.0, ()
+
+        reference_speaker = reference_speakers[reference_index]
+        best_score = None
+        best_order = None
+
+        for diarization_index, diarization_speaker in enumerate(diarization_speakers):
+            if diarization_index in used_diarization_indexes:
+                continue
+
+            remaining_score, remaining_order = find_best_order(
+                reference_index + 1,
+                used_diarization_indexes | frozenset({diarization_index}),
             )
-        ),
-    )
+            score = overlap[(reference_speaker, diarization_speaker)] + remaining_score
+            order = (diarization_speaker,) + remaining_order
+
+            if (
+                best_score is None
+                or score > best_score
+                or (score == best_score and order < best_order)
+            ):
+                best_score = score
+                best_order = order
+
+        return best_score, best_order
+
+    _, best_diarization_order = find_best_order(0, frozenset())
     mapping = dict(zip(reference_speakers, best_diarization_order))
     matched_overlap = {
         reference_speaker: overlap[(reference_speaker, mapping[reference_speaker])]

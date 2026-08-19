@@ -1,11 +1,12 @@
-"""Преобразование ручной сегментной разметки встречи AMI в JSON."""
-
-import json
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
 from ami_annotations_download import download_meeting_annotations
-from speaker_mapping import find_best_speaker_mapping
+from reference_json import (
+    clip_interval,
+    load_diarization_result,
+    map_and_save_reference,
+)
 
 
 def collect_non_speech(words_path):
@@ -59,14 +60,8 @@ def convert_annotations_by_segments(
 ):
     """Создаёт эталонный JSON по сегментной разметке AMI."""
 
-    diarization_json_path = Path(diarization_json_path)
-    with diarization_json_path.open("r", encoding="utf-8") as file:
-        diarization_result = json.load(file)
-
-    diarization_segments = diarization_result["segments"]
-    audio_file = diarization_result["audio_file"]
-    diarization_speaker_count = len(
-        {segment["speaker"] for segment in diarization_segments}
+    diarization_segments, audio_file = load_diarization_result(
+        diarization_json_path
     )
 
     with download_meeting_annotations(meeting, {"segments", "words"}) as annotations_dir:
@@ -74,9 +69,6 @@ def convert_annotations_by_segments(
         words_dir = annotations_dir / "words"
         meeting_segment_files = sorted(
             segments_dir.glob(f"{meeting}.*.segments.xml")
-        )
-        speakers = sorted(
-            {path.name.split(".")[1] for path in meeting_segment_files}
         )
         result_segments = []
 
@@ -95,13 +87,15 @@ def convert_annotations_by_segments(
                     end,
                     non_speech,
                 ):
-                    shifted_start = piece_start - time_offset
-                    shifted_end = piece_end - time_offset
-                    clipped_start = max(0.0, shifted_start)
-                    clipped_end = min(fragment_duration, shifted_end)
-
-                    if clipped_end <= clipped_start:
+                    clipped = clip_interval(
+                        piece_start,
+                        piece_end,
+                        time_offset,
+                        fragment_duration,
+                    )
+                    if clipped is None:
                         continue
+                    clipped_start, clipped_end = clipped
 
                     result_segments.append(
                         {
@@ -111,42 +105,13 @@ def convert_annotations_by_segments(
                         }
                     )
 
-    speaker_mapping, matched_overlap = find_best_speaker_mapping(
+    return map_and_save_reference(
         result_segments,
         diarization_segments,
+        audio_file,
+        "segments",
+        output_dir,
     )
-    print("Автоматический маппинг говорящих:")
-    for speaker in speakers:
-        print(
-            f"{speaker} -> {speaker_mapping[speaker]} "
-            f"({matched_overlap[speaker]:.3f} с совпадения)"
-        )
-
-    for segment in result_segments:
-        segment["speaker"] = speaker_mapping[segment["speaker"]]
-
-    result_segments.sort(
-        key=lambda item: (item["start"], item["end"], item["speaker"])
-    )
-    result = {"audio_file": audio_file, "segments": result_segments}
-
-    output_dir = Path(output_dir)
-    output_dir.mkdir(parents=True, exist_ok=True)
-    speaker_count_status = (
-        "correct" if diarization_speaker_count == len(speakers) else "incorrect"
-    )
-    output_name = (
-        f"{Path(audio_file).stem}_reference_by_segments_"
-        f"{speaker_count_status}_num_speakers_"
-        f"{diarization_speaker_count}.json"
-    )
-    output_path = output_dir / output_name
-    with output_path.open("w", encoding="utf-8") as file:
-        json.dump(result, file, ensure_ascii=False, indent=2)
-
-    print(f"Готово. Сохранено сегментов: {len(result_segments)}")
-    print(f"JSON-файл: {output_path.resolve()}")
-    return output_path
 
 
 def main():
